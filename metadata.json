@@ -1,0 +1,6 @@
+{
+  "name": "Madjuka Tensis & Landmark Tourism AR",
+  "description": "Photo tourism landmark recognition, Search history grounding, AR TTS narrations, and Madjuka Tensis 16 Tenses AR quiz with non-mirror camera and 5-finger pinch tracking.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

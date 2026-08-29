@@ -1,0 +1,22 @@
+{
+  "name": "Madjuka Tensis & Landmark Tourism AR",
+  "short_name": "MadjukaTensis",
+  "description": "Photo tourism landmark recognition, Search history grounding, AR TTS narrations, and Madjuka Tensis 16 Tenses AR quiz.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0284c7",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1555899434-94d1368aa7af?w=192&auto=format&fit=crop&q=80",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1555899434-94d1368aa7af?w=512&auto=format&fit=crop&q=80",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

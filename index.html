@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Madjuka Tensis & Landmark Tourism AR</title>
+    <meta name="description" content="Photo tourism landmark recognition, Search history grounding, AR TTS narrations, and Madjuka Tensis 16 Tenses AR quiz with non-mirror camera and 5-finger pinch tracking." />
+    <meta property="og:title" content="Madjuka Tensis & Landmark Tourism AR" />
+    <meta property="og:description" content="Photo tourism landmark recognition, Search history grounding, AR TTS narrations, and Madjuka Tensis 16 Tenses AR quiz with non-mirror camera and 5-finger pinch tracking." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0284c7" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/manifest.json" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 overflow-y-auto antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.log('SW registration failed:', err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>
+
