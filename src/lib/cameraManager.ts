@@ -50,8 +50,8 @@ export class CameraPipelineManager {
       this.handsInstance.setOptions({
         maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.65,
-        minTrackingConfidence: 0.6,
+        minDetectionConfidence: 0.55,
+        minTrackingConfidence: 0.55,
       });
 
       this.handsInstance.onResults((results: any) => {

@@ -3,7 +3,7 @@ import { CameraView } from "./CameraView";
 import { FloatingARPanel } from "./FloatingARPanel";
 import { TensesQuiz } from "./TensesQuiz";
 import { PanelTransform, ActiveAppMode, StudentProfile } from "../types";
-import { Hand, RotateCcw, ArrowLeft, Eye, EyeOff, Camera, HelpCircle, GraduationCap } from "lucide-react";
+import { Hand, ArrowLeft, Sparkles } from "lucide-react";
 
 interface ARHandTrackingSectionProps {
   onNavigate: (mode: ActiveAppMode) => void;
@@ -14,11 +14,11 @@ interface ARHandTrackingSectionProps {
 export const ARHandTrackingSection: React.FC<ARHandTrackingSectionProps> = ({
   onNavigate,
   studentProfile,
-  onOpenProfileModal,
 }) => {
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null);
   const [showDebugSkeleton, setShowDebugSkeleton] = useState(false);
   const [isTouchOnlyMode, setIsTouchOnlyMode] = useState(false);
+  const [nextQuestionSignal, setNextQuestionSignal] = useState<number>(0);
 
   // Floating Panel Transform State (Persisted across questions)
   const [panelTransform, setPanelTransform] = useState<PanelTransform>({
@@ -34,16 +34,21 @@ export const ARHandTrackingSection: React.FC<ARHandTrackingSectionProps> = ({
     setPanelTransform((prev) => ({ ...prev, ...updated }));
   };
 
-  // Handle Raycast Pointer Click triggered by Pinch (Thumb + Index)
+  // Handle Raycast Pointer Click triggered by Fist Close or Pinch
   const handlePointerClick = useCallback((targetId: string | null) => {
     if (!targetId) return;
 
-    if (targetId.startsWith("option-") || targetId === "btn-next-question" || targetId === "btn-restart-quiz") {
+    if (targetId.startsWith("option-") || targetId === "btn-next-question" || targetId === "btn-restart-quiz" || targetId === "btn-ai-explain") {
       const el = document.getElementById(targetId);
       if (el) {
         el.click();
       }
     }
+  }, []);
+
+  // Handle Dual-Hand Next Question Gesture ("1 Open Hand + 1 Fist")
+  const handleDualHandNext = useCallback(() => {
+    setNextQuestionSignal(Date.now());
   }, []);
 
   return (
@@ -61,14 +66,24 @@ export const ARHandTrackingSection: React.FC<ARHandTrackingSectionProps> = ({
 
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
             <Hand className="w-3.5 h-3.5" />
-            <span>AR 5-Finger Tracking (Non-Mirror)</span>
+            <span>AR 2-Hand Gesture Active</span>
           </div>
         </div>
 
         {/* Quick Gesture Guide Pill */}
-        <div className="text-[11px] text-slate-300 bg-slate-950/80 px-3 py-1 rounded-xl border border-slate-800 hidden md:block">
-          👉 <span className="text-amber-400 font-semibold">Arahkan Telunjuk</span> (Highlight) • 🤏{" "}
-          <span className="text-emerald-400 font-semibold">Pinch Jempol+Telunjuk</span> (Pilih Jawaban)
+        <div className="text-[11px] text-slate-300 bg-slate-950/80 px-3 py-1 rounded-xl border border-slate-800 hidden md:flex items-center gap-2">
+          <span>
+            👉 <strong className="text-amber-400 font-semibold">Telunjuk Arahkan</strong>
+          </span>
+          <span className="text-slate-600">•</span>
+          <span>
+            ✊ <strong className="text-emerald-400 font-semibold">Tutup Tangan</strong> (Klik)
+          </span>
+          <span className="text-slate-600">•</span>
+          <span className="text-sky-300 font-semibold flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-amber-300" />
+            <span>🖐️+✊ 1 Buka + 1 Mengepal (Next Soal)</span>
+          </span>
         </div>
 
         {/* Action Controls */}
@@ -86,6 +101,7 @@ export const ARHandTrackingSection: React.FC<ARHandTrackingSectionProps> = ({
       <div className="relative flex-1 w-full h-full overflow-hidden">
         <CameraView
           onPointerClick={handlePointerClick}
+          onDualHandNext={handleDualHandNext}
           hoveredElementId={hoveredElementId}
           onHoverTargetChange={setHoveredElementId}
           showDebugSkeleton={showDebugSkeleton}
@@ -99,12 +115,13 @@ export const ARHandTrackingSection: React.FC<ARHandTrackingSectionProps> = ({
             onUpdateTransform={handleUpdatePanelTransform}
             hoveredElementId={hoveredElementId}
             title="MADJUKA TENSIS AR QUIZ"
-            badge="HANDS-FREE"
+            badge="2-HAND GESTURE"
           >
             <TensesQuiz
               hoveredElementId={hoveredElementId}
               studentProfile={studentProfile}
               onSwitchToGuide={() => onNavigate("dashboard")}
+              nextQuestionTriggerSignal={nextQuestionSignal}
             />
           </FloatingARPanel>
         </CameraView>

@@ -68,6 +68,8 @@ export enum GestureState {
   NO_HAND = "NO_HAND",
   TRACKING = "TRACKING",
   INDEX_POINTING = "INDEX_POINTING",
+  CLOSING_HAND = "CLOSING_HAND",
+  CLOSED_FIST = "CLOSED_FIST",
   READY_TO_PINCH = "READY_TO_PINCH",
   PINCH_START = "PINCH_START",
   PINCH_HOLD = "PINCH_HOLD",
@@ -95,17 +97,42 @@ export type FingerLandmarks = {
   rawLandmarks: Point3D[]; // 21 joints
 };
 
+export type SingleHandData = {
+  handedness: "Left" | "Right";
+  confidence: number;
+  gestureState: GestureState;
+  pointer: Point2D;
+  isPinching: boolean;
+  isClosedFist: boolean;
+  isOpenHand: boolean;
+  fistProgress: number; // 0.0 - 1.0
+  pinchDistance: number;
+  landmarks: FingerLandmarks;
+};
+
 export type HandTrackingData = {
   isDetected: boolean;
   handedness: "Left" | "Right";
   confidence: number;
   gestureState: GestureState;
-  pointer: Point2D; // Index tip smoothed coordinates (0-1)
+  pointer: Point2D; // Smoothed pointer coordinates (0-1)
   isPinching: boolean;
+  isClosedFist: boolean;
+  isClicking: boolean;
+  clickType: "fist" | "pinch" | null;
+  fistProgress: number; // 0.0 (open hand) to 1.0 (fully closed fist)
   pinchDistance: number;
   rawDistance: number;
   fps: number;
   landmarks?: FingerLandmarks;
+  handsCount: number;
+  allHands?: SingleHandData[];
+  isDualHandNextTriggered: boolean;
+  dualHandState?: {
+    hasOneOpenOneFist: boolean;
+    openHandSide?: "Left" | "Right";
+    fistHandSide?: "Left" | "Right";
+  };
 };
 
 export type PanelTransform = {

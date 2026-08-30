@@ -107,13 +107,14 @@ export const FloatingARPanel: React.FC<FloatingARPanelProps> = ({
         transform: `translate(${panelTransform.x}px, ${panelTransform.y}px) scale(${panelTransform.scale}) rotate(${panelTransform.rotation}deg)`,
       }}
     >
+      {/* Glassmorphic AR Card Container */}
       <div
-        className={`relative w-full max-w-xl bg-slate-900/90 text-slate-100 backdrop-blur-xl border rounded-3xl shadow-2xl overflow-hidden transition-all ${
+        className={`relative w-full max-w-xl bg-slate-900/50 text-slate-100 backdrop-blur-xl border rounded-3xl shadow-2xl overflow-hidden transition-all ${
           panelTransform.isDragging
             ? "border-emerald-400/80 shadow-[0_0_40px_rgba(16,185,129,0.3)] ring-2 ring-emerald-400/50"
             : isDragHovered
-            ? "border-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.25)]"
-            : "border-slate-700/80 shadow-black/60"
+            ? "border-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.3)]"
+            : "border-white/20 shadow-black/60"
         }`}
       >
         {/* AR Header / Drag Bar (Raycast Target: 'panel-drag-handle') */}
@@ -121,50 +122,50 @@ export const FloatingARPanel: React.FC<FloatingARPanelProps> = ({
           data-clickable-id="panel-drag-handle"
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
-          className={`flex items-center justify-between px-5 py-3.5 border-b border-slate-700/70 cursor-grab active:cursor-grabbing transition-colors ${
+          className={`flex items-center justify-between px-5 py-3 border-b border-white/10 cursor-grab active:cursor-grabbing transition-colors ${
             isDragHovered
-              ? "bg-amber-500/20 text-amber-200"
+              ? "bg-amber-500/25 text-amber-200"
               : panelTransform.isDragging
-              ? "bg-emerald-600/30 text-emerald-200"
-              : "bg-slate-800/60 hover:bg-slate-800/90"
+              ? "bg-emerald-600/35 text-emerald-200"
+              : "bg-slate-950/40 hover:bg-slate-900/60"
           }`}
-          title="Pinch or drag here to move AR panel. Release to lock position."
+          title="Drag or pinch to move AR panel"
         >
-          <div className="flex items-center gap-2">
-            <div className="p-1 rounded-md bg-sky-500/20 text-sky-400">
-              <Move className="w-4 h-4" />
+          <div className="flex items-center gap-2.5">
+            <div className="p-1 rounded-md bg-sky-500/25 text-sky-300 border border-sky-400/30">
+              <Move className="w-3.5 h-3.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-xs tracking-wider uppercase text-white">{title}</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                <span className="font-bold text-xs tracking-wider uppercase text-white drop-shadow-sm">{title}</span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/30 backdrop-blur-sm">
                   {badge}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">
+              <p className="text-[10px] text-slate-300">
                 {panelTransform.isDragging
-                  ? "Dragging in 3D Space (Follow hand)..."
+                  ? "Menggeser Panel di Ruang AR..."
                   : isDragHovered
-                  ? "Pinch & Hold to move panel"
+                  ? "Tahan untuk menggeser"
                   : panelTransform.isLocked
-                  ? "Position Locked (Persisted)"
-                  : "Draggable Header"}
+                  ? "Posisi Terkunci"
+                  : "Panel Transparan Glassmorphism"}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => onUpdateTransform({ isLocked: !panelTransform.isLocked })}
-              className="p-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 text-xs transition"
+              className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-200 text-xs border border-white/10 backdrop-blur-md transition"
               title={panelTransform.isLocked ? "Panel is locked in place" : "Panel is unlocked"}
             >
               {panelTransform.isLocked ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Unlock className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={() => onUpdateTransform({ x: 0, y: 0, rotation: 0, scale: 1 })}
-              className="p-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 text-xs transition"
-              title="Reset panel to center"
+              className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-200 text-xs border border-white/10 backdrop-blur-md transition"
+              title="Reset panel ke tengah"
             >
               <RotateCw className="w-3.5 h-3.5" />
             </button>
@@ -172,7 +173,7 @@ export const FloatingARPanel: React.FC<FloatingARPanelProps> = ({
         </div>
 
         {/* Panel Main Content Area */}
-        <div className="p-5 sm:p-6">{children}</div>
+        <div className="p-4 sm:p-5">{children}</div>
       </div>
     </div>
   );

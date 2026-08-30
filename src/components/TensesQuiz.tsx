@@ -10,6 +10,7 @@ interface TensesQuizProps {
   onSelectAnswerByPinch?: (label: "A" | "B" | "C" | "D") => void;
   onNextQuestionByPinch?: () => void;
   onSwitchToGuide?: (tenseId?: string) => void;
+  nextQuestionTriggerSignal?: number;
 }
 
 export const TensesQuiz: React.FC<TensesQuizProps> = ({
@@ -18,6 +19,7 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
   onSelectAnswerByPinch,
   onNextQuestionByPinch,
   onSwitchToGuide,
+  nextQuestionTriggerSignal,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<"A" | "B" | "C" | "D" | null>(null);
@@ -31,6 +33,37 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
 
   const currentQuestion: QuizQuestion = QUESTION_BANK[currentIndex] || QUESTION_BANK[0];
   const currentTenseInfo = ALL_16_TENSES.find((t) => t.id === currentQuestion.tenseId);
+
+  // Handle Next Question
+  const handleNextQuestion = () => {
+    if (currentIndex < QUESTION_BANK.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedAnswer(null);
+      setIsLocked(false);
+      setAiExplanation(null);
+    } else {
+      setIsCompleted(true);
+      confetti({
+        particleCount: 150,
+        spread: 100,
+        origin: { y: 0.5 },
+      });
+    }
+  };
+
+  // Listen to external dual-hand next question trigger signal
+  useEffect(() => {
+    if (nextQuestionTriggerSignal && nextQuestionTriggerSignal > 0) {
+      if (isCompleted) {
+        restartQuiz();
+      } else if (isLocked) {
+        handleNextQuestion();
+      } else {
+        // If not locked yet, advance directly or auto-select
+        handleNextQuestion();
+      }
+    }
+  }, [nextQuestionTriggerSignal]);
 
   // Handle Answer Selection
   const handleSelectAnswer = (label: "A" | "B" | "C" | "D") => {
@@ -56,35 +89,6 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
       setStreak(0);
     }
   };
-
-  // Handle Next Question
-  const handleNextQuestion = () => {
-    if (currentIndex < QUESTION_BANK.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setSelectedAnswer(null);
-      setIsLocked(false);
-      setAiExplanation(null);
-    } else {
-      setIsCompleted(true);
-      confetti({
-        particleCount: 150,
-        spread: 100,
-        origin: { y: 0.5 },
-      });
-    }
-  };
-
-  // Listen to pinch events from parent
-  useEffect(() => {
-    if (!hoveredElementId) return;
-
-    if (hoveredElementId.startsWith("option-")) {
-      const label = hoveredElementId.replace("option-", "") as "A" | "B" | "C" | "D";
-      if (onSelectAnswerByPinch) {
-        // Parent will call handleSelectAnswer
-      }
-    }
-  }, [hoveredElementId, onSelectAnswerByPinch]);
 
   // Request AI Tutor explanation
   const fetchAiExplanation = async () => {
@@ -125,25 +129,25 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
 
   if (isCompleted) {
     return (
-      <div className="text-center py-6 space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+      <div className="text-center py-5 space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-400 backdrop-blur-md shadow-lg shadow-emerald-950/40">
           <Award className="w-9 h-9" />
         </div>
         <div>
-          <h2 className="text-xl font-black text-white">AR QUIZ COMPLETED!</h2>
-          <p className="text-xs text-slate-300 mt-0.5">
-            Selamat <strong className="text-amber-400">{studentProfile?.name || "Siswa"}</strong> ({studentProfile?.grade || "SMP"}), Anda telah menyelesaikan latihan Madjuka Tensis!
+          <h2 className="text-xl font-black text-white drop-shadow-md">AR QUIZ SELESAI!</h2>
+          <p className="text-xs text-slate-200 mt-0.5">
+            Selamat <strong className="text-amber-300">{studentProfile?.name || "Siswa"}</strong> ({studentProfile?.grade || "SMP"}), Anda telah menyelesaikan latihan Madjuka Tensis!
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto">
-          <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700">
-            <span className="text-[11px] text-slate-400">Total Score</span>
-            <p className="text-xl font-black text-sky-400">{score}</p>
+          <div className="p-3 bg-slate-900/45 backdrop-blur-xl rounded-2xl border border-white/15 shadow-inner">
+            <span className="text-[11px] text-slate-300 font-medium">Total Skor</span>
+            <p className="text-xl font-black text-sky-300 drop-shadow">{score}</p>
           </div>
-          <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700">
-            <span className="text-[11px] text-slate-400">Max Streak</span>
-            <p className="text-xl font-black text-amber-400">{highestStreak} 🔥</p>
+          <div className="p-3 bg-slate-900/45 backdrop-blur-xl rounded-2xl border border-white/15 shadow-inner">
+            <span className="text-[11px] text-slate-300 font-medium">Max Streak</span>
+            <p className="text-xl font-black text-amber-300 drop-shadow">{highestStreak} 🔥</p>
           </div>
         </div>
 
@@ -152,9 +156,9 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
             id="btn-restart-quiz"
             data-clickable-id="btn-restart-quiz"
             onClick={restartQuiz}
-            className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-lg transition active:scale-95 text-xs"
+            className="px-5 py-2.5 bg-sky-600/80 hover:bg-sky-500/90 text-white font-bold rounded-xl shadow-lg border border-sky-400/40 backdrop-blur-md transition active:scale-95 text-xs"
           >
-            PLAY AGAIN (PINCH)
+            MAIN LAGI (TUTUP TANGAN / KLIK)
           </button>
         </div>
       </div>
@@ -162,49 +166,49 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Quiz Progress & Stats Bar */}
-      <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-700/60">
-        <div className="flex items-center gap-1.5">
-          <span className="font-bold text-sky-400">#{currentIndex + 1}/{QUESTION_BANK.length}</span>
+    <div className="space-y-3.5">
+      {/* Quiz Progress & Stats Bar with Glassmorphic pill */}
+      <div className="flex items-center justify-between text-xs pb-2 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-sky-300 drop-shadow-sm">#{currentIndex + 1}/{QUESTION_BANK.length}</span>
           {studentProfile && (
-            <span className="text-[10px] text-amber-300 font-semibold truncate max-w-[100px]">
-              • {studentProfile.name}
+            <span className="text-[10px] text-amber-300 font-semibold truncate max-w-[120px] bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-400/20">
+              {studentProfile.name}
             </span>
           )}
-          <span className="px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-500/25 text-indigo-200 border border-indigo-400/30 backdrop-blur-sm">
             {currentQuestion.level}
           </span>
         </div>
 
         <div className="flex items-center gap-3">
           {streak > 0 && (
-            <div className="flex items-center gap-1 text-amber-400 font-bold text-xs animate-bounce">
-              <Flame className="w-3.5 h-3.5 fill-amber-400" />
+            <div className="flex items-center gap-1 text-amber-300 font-bold text-xs animate-bounce bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-400/30">
+              <Flame className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
               <span>{streak}x Streak</span>
             </div>
           )}
-          <div className="text-slate-300 font-semibold">
-            Score: <span className="text-emerald-400 font-bold">{score}</span>
+          <div className="text-slate-200 text-xs font-semibold">
+            Skor: <span className="text-emerald-400 font-black">{score}</span>
           </div>
         </div>
       </div>
 
       {/* Target Tense Title */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-sky-300 uppercase tracking-wide">
+        <span className="text-xs font-bold text-sky-300 uppercase tracking-wider drop-shadow-sm">
           {currentQuestion.tenseName}
         </span>
         {currentQuestion.timeSignal && (
-          <span className="text-[10px] text-amber-300/90 font-mono bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+          <span className="text-[10px] text-amber-300 font-mono bg-amber-500/15 px-2.5 py-0.5 rounded-lg border border-amber-400/25 backdrop-blur-sm">
             Signal: {currentQuestion.timeSignal}
           </span>
         )}
       </div>
 
-      {/* Question Text */}
-      <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800">
-        <p className="text-base font-semibold text-white leading-relaxed">
+      {/* Question Text with Semi-transparent Glass Card */}
+      <div className="p-4 bg-slate-950/40 backdrop-blur-md rounded-2xl border border-white/15 shadow-inner">
+        <p className="text-sm sm:text-base font-semibold text-white leading-relaxed drop-shadow-sm">
           {currentQuestion.question}
         </p>
       </div>
@@ -217,20 +221,21 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
           const isCorrect = isLocked && opt.label === currentQuestion.correctLabel;
           const isWrong = isLocked && isSelected && opt.label !== currentQuestion.correctLabel;
 
-          let btnStyles = "bg-slate-800/80 border-slate-700/80 text-slate-200 hover:bg-slate-700/80";
+          // Default Glassmorphic button style (translucent, backdrop-blur, clean border)
+          let btnStyles = "bg-slate-900/40 hover:bg-slate-800/60 border-white/15 text-slate-100 backdrop-blur-md shadow-sm";
 
           if (isLocked) {
             if (isCorrect) {
-              btnStyles = "bg-emerald-600/30 border-emerald-400 text-emerald-200 ring-2 ring-emerald-500/50";
+              btnStyles = "bg-emerald-600/50 border-emerald-400 text-white ring-2 ring-emerald-400/60 shadow-[0_0_20px_rgba(52,211,153,0.4)] backdrop-blur-lg";
             } else if (isWrong) {
-              btnStyles = "bg-rose-600/30 border-rose-400 text-rose-200";
+              btnStyles = "bg-rose-600/50 border-rose-400 text-rose-100 ring-2 ring-rose-400/40 backdrop-blur-lg";
             } else {
-              btnStyles = "bg-slate-900/40 border-slate-800 text-slate-500 opacity-60";
+              btnStyles = "bg-slate-950/30 border-white/5 text-slate-400 opacity-50 backdrop-blur-sm";
             }
           } else if (isHovered) {
-            // INDEX POINTING HOVER ONLY HIGHLIGHTS!
+            // INDEX POINTING HOVER ONLY HIGHLIGHTS (Amber glow)
             btnStyles =
-              "bg-amber-500/25 border-amber-400 text-amber-100 ring-2 ring-amber-400/60 shadow-[0_0_15px_rgba(245,158,11,0.4)] scale-[1.02]";
+              "bg-amber-500/35 border-amber-400 text-white ring-2 ring-amber-400/80 shadow-[0_0_20px_rgba(245,158,11,0.5)] scale-[1.02] backdrop-blur-xl";
           }
 
           return (
@@ -240,22 +245,22 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
               data-clickable-id={`option-${opt.label}`}
               onClick={() => handleSelectAnswer(opt.label)}
               className={`flex items-center gap-3 p-3 rounded-2xl border text-left text-xs sm:text-sm font-medium transition-all duration-150 active:scale-95 ${btnStyles}`}
-              title={`Point with index to highlight, Pinch to select option ${opt.label}`}
+              title={`Arahkan telunjuk, lalu Tutup Tangan (genggam) atau Pinch untuk memilih ${opt.label}`}
             >
               <span
-                className={`w-7 h-7 shrink-0 rounded-xl flex items-center justify-center font-bold text-xs ${
+                className={`w-7 h-7 shrink-0 rounded-xl flex items-center justify-center font-black text-xs shadow-md transition-colors ${
                   isCorrect
-                    ? "bg-emerald-500 text-slate-950 font-black"
+                    ? "bg-emerald-400 text-slate-950"
                     : isWrong
                     ? "bg-rose-500 text-white"
                     : isHovered
-                    ? "bg-amber-400 text-slate-950 font-black"
-                    : "bg-slate-700 text-slate-300"
+                    ? "bg-amber-400 text-slate-950"
+                    : "bg-slate-800/80 text-sky-300 border border-white/10"
                 }`}
               >
                 {opt.label}
               </span>
-              <span className="flex-1 truncate">{opt.text}</span>
+              <span className="flex-1 font-medium">{opt.text}</span>
               {isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />}
               {isWrong && <XCircle className="w-4 h-4 text-rose-400 shrink-0" />}
             </button>
@@ -263,68 +268,89 @@ export const TensesQuiz: React.FC<TensesQuizProps> = ({
         })}
       </div>
 
-      {/* Answer Feedback & AI Explanation Section */}
+      {/* Feedback Bar & AI Explanation Modal */}
       {isLocked && (
-        <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-slate-700/80 space-y-2.5 animate-fadeIn">
-          <div className="flex items-start gap-2">
-            {selectedAnswer === currentQuestion.correctLabel ? (
-              <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" /> BENAR (+{100 + streak * 20} pts)
-              </span>
-            ) : (
-              <span className="text-rose-400 font-bold text-xs flex items-center gap-1">
-                <XCircle className="w-4 h-4" /> KURANG TEPAT (Kunci: {currentQuestion.correctLabel})
-              </span>
-            )}
+        <div className="pt-2 space-y-3">
+          <div
+            className={`p-3.5 rounded-2xl border backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+              selectedAnswer === currentQuestion.correctLabel
+                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-200"
+                : "bg-rose-950/60 border-rose-500/40 text-rose-200"
+            }`}
+          >
+            <div>
+              <p className="font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                {selectedAnswer === currentQuestion.correctLabel ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Jawaban Benar! (+100 poin)</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span>Kurang Tepat. Jawaban yang benar adalah {currentQuestion.correctLabel}.</span>
+                  </>
+                )}
+              </p>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                {currentQuestion.explanation}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              {/* AI Tutor Explain Button */}
+              <button
+                id="btn-ai-explain"
+                data-clickable-id="btn-ai-explain"
+                onClick={fetchAiExplanation}
+                disabled={isLoadingAi}
+                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600/70 hover:bg-indigo-500/80 text-white rounded-xl text-xs font-semibold border border-indigo-400/30 backdrop-blur-md transition active:scale-95 disabled:opacity-50"
+                title="Tanya AI Tutor untuk penjelasan mendalam"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>{isLoadingAi ? "Menganalisis..." : "Tanya AI"}</span>
+              </button>
+
+              {/* Next Question Button (Raycast Target: 'btn-next-question') */}
+              <button
+                id="btn-next-question"
+                data-clickable-id="btn-next-question"
+                onClick={handleNextQuestion}
+                className={`flex items-center gap-1.5 px-4 py-2 text-white font-bold rounded-xl text-xs shadow-lg transition active:scale-95 border ${
+                  hoveredElementId === "btn-next-question"
+                    ? "bg-amber-500 border-amber-300 ring-2 ring-amber-300 scale-105 text-slate-950"
+                    : "bg-sky-600/80 hover:bg-sky-500/90 border-sky-400/40 backdrop-blur-md"
+                }`}
+                title="Arahkan pointer lalu Tutup Tangan atau gunakan gestur 🖐️+✊ (1 Buka + 1 Mengepal)"
+              >
+                <span>Lanjut</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">{currentQuestion.explanation}</p>
-
-          {/* Formula Helper */}
-          {currentTenseInfo && (
-            <div className="text-[11px] bg-sky-950/40 p-2 rounded-xl border border-sky-800/40 text-sky-200">
-              <span className="font-semibold text-sky-400">Formula: </span>
-              {currentTenseInfo.formula.positive}
+          {/* Quick Dual-Hand Gesture Banner Hint */}
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-xl text-[11px] text-slate-300">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-400/30">
+                🖐️ + ✊ Gestur Lanjut
+              </span>
+              <span>1 tangan terbuka + 1 tangan mengepal untuk otomatis ke soal berikutnya</span>
             </div>
-          )}
+          </div>
 
-          {/* AI Adaptive Coach explanation */}
-          {aiExplanation ? (
-            <div className="text-xs p-2.5 bg-indigo-950/50 rounded-xl border border-indigo-700/50 text-indigo-200 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-indigo-300">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span>AI Tenses Tutor:</span>
+          {/* AI Explanation Box */}
+          {aiExplanation && (
+            <div className="p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl backdrop-blur-xl text-indigo-100 text-xs space-y-2 animate-fadeIn">
+              <div className="flex items-center gap-2 font-bold text-amber-300">
+                <Sparkles className="w-4 h-4" />
+                <span>Penjelasan Tutor AI:</span>
               </div>
-              <p>{aiExplanation}</p>
+              <p className="leading-relaxed whitespace-pre-line text-slate-200">
+                {aiExplanation}
+              </p>
             </div>
-          ) : (
-            <button
-              onClick={fetchAiExplanation}
-              disabled={isLoadingAi}
-              className="flex items-center gap-1.5 text-[11px] text-indigo-300 hover:text-indigo-200 font-semibold transition"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{isLoadingAi ? "Thinking..." : "Tanya Penjelasan Detail ke AI Tutor"}</span>
-            </button>
           )}
-
-          {/* NEXT QUESTION BUTTON (Raycast Target: 'btn-next-question') */}
-          <div className="pt-1 flex justify-end">
-            <button
-              id="btn-next-question"
-              data-clickable-id="btn-next-question"
-              onClick={handleNextQuestion}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-lg active:scale-95 ${
-                hoveredElementId === "btn-next-question"
-                  ? "bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.6)] scale-105"
-                  : "bg-sky-600 hover:bg-sky-500 text-white"
-              }`}
-              title="Point with index & Pinch to advance to next question"
-            >
-              <span>SOAL BERIKUTNYA</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
         </div>
       )}
     </div>
