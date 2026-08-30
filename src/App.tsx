@@ -11,6 +11,7 @@ import { StandardQuiz } from "./components/StandardQuiz";
 import { PhotoTourism } from "./components/PhotoTourism";
 import { ARHandTrackingSection } from "./components/ARHandTrackingSection";
 import { StudentProfileModal } from "./components/StudentProfileModal";
+import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
   const [activeMode, setActiveMode] = useState<ActiveAppMode>("dashboard");
@@ -59,43 +60,75 @@ export default function App() {
         onSelectMode={handleNavigateWithProfileCheck}
       />
 
-      {/* Main Content Viewport */}
+      {/* Main Content Viewport with animated route transitions */}
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-5 pb-20">
-        {/* 1. Dashboard & Pusat Materi (Default Landing View) */}
-        {activeMode === "dashboard" && (
-          <DashboardMateri
-            onNavigateWithProfileCheck={handleNavigateWithProfileCheck}
-            studentProfile={studentProfile}
-            onOpenProfileModal={() => setIsProfileModalOpen(true)}
-          />
-        )}
+        <AnimatePresence mode="wait">
+          {/* 1. Dashboard & Pusat Materi (Default Landing View) */}
+          {activeMode === "dashboard" && (
+            <motion.div
+              key="view-dashboard"
+              initial={{ opacity: 0, y: 16, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.99 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <DashboardMateri
+                onNavigateWithProfileCheck={handleNavigateWithProfileCheck}
+                studentProfile={studentProfile}
+                onOpenProfileModal={() => setIsProfileModalOpen(true)}
+              />
+            </motion.div>
+          )}
 
-        {/* 2. Quiz Biasa (Standard Quiz with Touch / Keyboard) */}
-        {activeMode === "quiz_biasa" && (
-          <StandardQuiz
-            onNavigate={handleNavigateWithProfileCheck}
-            studentProfile={studentProfile}
-            onOpenProfileModal={() => setIsProfileModalOpen(true)}
-          />
-        )}
+          {/* 2. Quiz Biasa (Standard Quiz with Touch / Keyboard) */}
+          {activeMode === "quiz_biasa" && (
+            <motion.div
+              key="view-quiz-biasa"
+              initial={{ opacity: 0, y: 16, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.99 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <StandardQuiz
+                onNavigate={handleNavigateWithProfileCheck}
+                studentProfile={studentProfile}
+                onOpenProfileModal={() => setIsProfileModalOpen(true)}
+              />
+            </motion.div>
+          )}
 
-        {/* 3. Photo Tourism & Search Grounding with AR Audio */}
-        {activeMode === "photo_tourism" && (
-          <div className="max-w-4xl mx-auto py-2">
-            <PhotoTourism hoveredElementId={null} />
-          </div>
-        )}
+          {/* 3. Photo Tourism & Search Grounding with AR Audio */}
+          {activeMode === "photo_tourism" && (
+            <motion.div
+              key="view-photo-tourism"
+              initial={{ opacity: 0, y: 16, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.99 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="max-w-4xl mx-auto py-2"
+            >
+              <PhotoTourism hoveredElementId={null} />
+            </motion.div>
+          )}
 
-        {/* 4. AR Hand-Tracking Quiz */}
-        {activeMode === "ar_quiz" && (
-          <div className="py-2">
-            <ARHandTrackingSection
-              onNavigate={handleNavigateWithProfileCheck}
-              studentProfile={studentProfile}
-              onOpenProfileModal={() => setIsProfileModalOpen(true)}
-            />
-          </div>
-        )}
+          {/* 4. AR Hand-Tracking Quiz */}
+          {activeMode === "ar_quiz" && (
+            <motion.div
+              key="view-ar-quiz"
+              initial={{ opacity: 0, y: 16, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.99 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="py-2"
+            >
+              <ARHandTrackingSection
+                onNavigate={handleNavigateWithProfileCheck}
+                studentProfile={studentProfile}
+                onOpenProfileModal={() => setIsProfileModalOpen(true)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Student Profile Registration Modal */}

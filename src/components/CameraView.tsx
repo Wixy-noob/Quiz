@@ -34,12 +34,24 @@ export const CameraView: React.FC<CameraViewProps> = ({
   const handEngineRef = useRef<HandTrackingEngine>(new HandTrackingEngine());
 
   const [facingMode, setFacingMode] = useState<CameraFacing>("user");
-  const [isMirrored, setIsMirrored] = useState<boolean>(true); // Default mirrored for intuitive front camera experience, toggleable anytime
+  const [isMirrored, setIsMirrored] = useState<boolean>(true);
   const [cameraStatus, setCameraStatus] = useState<"initializing" | "running" | "error">("initializing");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number }>({
     width: 1280,
     height: 720,
+  });
+
+  // Keep track of recent hovered element to prevent miss during fist clench
+  const lastHoveredRef = useRef<{ id: string | null; timestamp: number }>({
+    id: null,
+    timestamp: 0,
+  });
+
+  // Dwell click timer ref
+  const dwellHoverRef = useRef<{ targetId: string | null; startTime: number }>({
+    targetId: null,
+    startTime: 0,
   });
 
   const [trackingData, setTrackingData] = useState<HandTrackingData>({
@@ -61,36 +73,38 @@ export const CameraView: React.FC<CameraViewProps> = ({
     isDualHandNextTriggered: false,
   });
 
-  // Track raycasting targets
-  const findHoveredTarget = useCallback((pointerXNorm: number, pointerYNorm: number, mirrored: boolean): string | null => {
-    if (!containerRef.current) return null;
-    const rect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate actual screen X based on mirror mode
-    const adjustedXNorm = mirrored ? 1 - pointerXNorm : pointerXNorm;
-    const clientX = rect.left + adjustedXNorm * rect.width;
-    const clientY = rect.top + pointerYNorm * rect.height;
+  // Find interactive elements via raycasting
+  const findHoveredTarget = useCallback(
+    (pointerXNorm: number, pointerYNorm: number, mirrored: boolean): string | null => {
+      if (!containerRef.current) return null;
+      const rect = containerRef.current.getBoundingClientRect();
 
-    // Find all interactive elements with [data-clickable-id] attribute
-    const interactiveElements = document.querySelectorAll("[data-clickable-id]");
-    let foundId: string | null = null;
+      const adjustedXNorm = mirrored ? 1 - pointerXNorm : pointerXNorm;
+      const clientX = rect.left + adjustedXNorm * rect.width;
+      const clientY = rect.top + pointerYNorm * rect.height;
 
-    interactiveElements.forEach((el) => {
-      const elRect = el.getBoundingClientRect();
-      if (
-        clientX >= elRect.left &&
-        clientX <= elRect.right &&
-        clientY >= elRect.top &&
-        clientY <= elRect.bottom
-      ) {
-        foundId = el.getAttribute("data-clickable-id");
-      }
-    });
+      const interactiveElements = document.querySelectorAll("[data-clickable-id]");
+      let foundId: string | null = null;
 
-    return foundId;
-  }, []);
+      interactiveElements.forEach((el) => {
+        const elRect = el.getBoundingClientRect();
+        // Give a generous 8px hit box padding for comfort
+        if (
+          clientX >= elRect.left - 8 &&
+          clientX <= elRect.right + 8 &&
+          clientY >= elRect.top - 8 &&
+          clientY <= elRect.bottom + 8
+        ) {
+          foundId = el.getAttribute("data-clickable-id");
+        }
+      });
 
-  // Handle MediaPipe hands detection results
+      return foundId;
+    },
+    []
+  );
+
+  // Handle MediaPipe hands results
   const handleMediaPipeResults = useCallback(
     (results: any) => {
       if (isTouchOnlyMode) return;
@@ -103,29 +117,59 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
       setTrackingData(processed);
 
-      // Trigger dual-hand gesture action ("1 Open Hand + 1 Fist" -> Next Question)
+      // 1. Dual Hand Next Question Trigger ("1 Open + 1 Fist")
       if (isDualHandNextTriggered) {
         if (onDualHandNext) {
           onDualHandNext();
         }
-        // Fallback simulate clicking next question button
+        // Direct click fallback
         const nextBtn = document.getElementById("btn-next-question");
         if (nextBtn) {
           nextBtn.click();
         }
       }
 
-      // Perform Raycast check with index finger pointer
+      // 2. Pointer Raycasting & Target Resolution
       if (processed.isDetected) {
-        const target = findHoveredTarget(processed.pointer.x, processed.pointer.y, isMirrored);
-        onHoverTargetChange(target);
+        const currentTarget = findHoveredTarget(processed.pointer.x, processed.pointer.y, isMirrored);
+        onHoverTargetChange(currentTarget);
 
-        // If click gesture triggered (fist close or pinch)
+        const now = performance.now();
+        if (currentTarget) {
+          lastHoveredRef.current = { id: currentTarget, timestamp: now };
+        }
+
+        // Dwell Click Check (auto-clicks if hovering over same target for 1.4s)
+        if (currentTarget) {
+          if (dwellHoverRef.current.targetId === currentTarget) {
+            if (now - dwellHoverRef.current.startTime >= 1400) {
+              if (onPointerClick) {
+                onPointerClick(currentTarget);
+              }
+              // Reset dwell timer to prevent rapid duplicate clicks
+              dwellHoverRef.current.startTime = now + 1000;
+            }
+          } else {
+            dwellHoverRef.current = { targetId: currentTarget, startTime: now };
+          }
+        } else {
+          dwellHoverRef.current = { targetId: null, startTime: 0 };
+        }
+
+        // Fist / Pinch Click Trigger
         if (clickTriggered && onPointerClick) {
-          onPointerClick(target);
+          // If currentTarget is null (e.g. slight movement when closing fingers), use recently hovered target
+          const targetToClick =
+            currentTarget ||
+            (now - lastHoveredRef.current.timestamp < 350 ? lastHoveredRef.current.id : null);
+          
+          if (targetToClick) {
+            onPointerClick(targetToClick);
+          }
         }
       } else {
         onHoverTargetChange(null);
+        dwellHoverRef.current = { targetId: null, startTime: 0 };
       }
     },
     [isTouchOnlyMode, findHoveredTarget, onHoverTargetChange, onPointerClick, onDualHandNext, isMirrored]
@@ -170,12 +214,11 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   };
 
-  // Toggle Mirror Mode
   const toggleMirrorMode = () => {
     setIsMirrored((prev) => !prev);
   };
 
-  // Resize observer for responsive coordinate math
+  // Resize observer
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
@@ -204,7 +247,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
       id="ar-camera-container"
       className="relative w-full h-full min-h-[500px] overflow-hidden bg-slate-950 flex items-center justify-center select-none"
     >
-      {/* 1. Camera Video Feed with Mirror / Non-Mirror toggle */}
+      {/* 1. Camera Video Feed with Mirror / Non-Mirror mode */}
       <video
         ref={videoRef}
         id="camera-video-feed"
@@ -278,7 +321,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
           <span>{isTouchOnlyMode ? "Touch Mode" : "AR Hand Tracking"}</span>
         </button>
 
-        {/* Hand Status Badge */}
+        {/* Hand Detection Status Badge */}
         {!isTouchOnlyMode && (
           <div
             className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl border text-xs font-semibold backdrop-blur-md ${

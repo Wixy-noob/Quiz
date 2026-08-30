@@ -1,7 +1,7 @@
 import { GestureState, HandTrackingData, SingleHandData, Point2D, Point3D, FingerLandmarks } from "../types";
 import { Point2DSmoother, OneEuroFilter } from "./oneEuroFilter";
 
-// MediaPipe joint index mapping
+// MediaPipe landmark indices
 // 0: WRIST
 // 1-4: THUMB (CMC, MCP, IP, TIP)
 // 5-8: INDEX (MCP, PIP, DIP, TIP)
@@ -9,26 +9,28 @@ import { Point2DSmoother, OneEuroFilter } from "./oneEuroFilter";
 // 13-16: RING (MCP, PIP, DIP, TIP)
 // 17-20: PINKY (MCP, PIP, DIP, TIP)
 
-export const FIST_CLOSE_THRESHOLD = 0.65; // Hand closure >= 65% triggers Fist Click
-export const FIST_RELEASE_THRESHOLD = 0.42; // Hand closure <= 42% releases Fist Click
-export const PINCH_START_THRESHOLD = 0.045; // Start pinch when distance < 4.5%
-export const PINCH_RELEASE_THRESHOLD = 0.068; // Release pinch when distance > 6.8%
-export const CLICK_COOLDOWN_MS = 320; // Minimum time between consecutive clicks
-export const DUAL_HAND_NEXT_COOLDOWN_MS = 1200; // Minimum time between consecutive dual hand next triggers
+export const FIST_CLOSE_THRESHOLD = 0.58; // Lowered from 0.65 for high responsiveness
+export const FIST_RELEASE_THRESHOLD = 0.38; // Released when fingers open
+export const PINCH_START_THRESHOLD = 0.055; // Pinch trigger threshold
+export const PINCH_RELEASE_THRESHOLD = 0.075; // Pinch release threshold
+export const CLICK_COOLDOWN_MS = 300; // Minimum time between consecutive clicks
+export const DUAL_HAND_NEXT_COOLDOWN_MS = 900; // Fast and responsive cooldown for dual-hand next
 
 class SingleHandProcessor {
-  public pointerSmoother = new Point2DSmoother(0.8, 0.035, 0.001);
-  public distanceSmoother = new OneEuroFilter(0.8, 0.04, 1.0, 0.001);
-  public fistSmoother = new OneEuroFilter(0.9, 0.04, 1.0, 0.001);
+  public pointerSmoother = new Point2DSmoother(0.85, 0.03, 0.001);
+  public distanceSmoother = new OneEuroFilter(0.85, 0.03, 1.0, 0.001);
+  public fistSmoother = new OneEuroFilter(0.9, 0.03, 1.0, 0.001);
   public fingerSmoothers: Point2DSmoother[] = Array.from(
     { length: 21 },
-    () => new Point2DSmoother(0.8, 0.035, 0.001)
+    () => new Point2DSmoother(0.85, 0.03, 0.001)
   );
 
   public currentState: GestureState = GestureState.NO_HAND;
   public isPinching: boolean = false;
   public isClosedFist: boolean = false;
   public isOpenHand: boolean = false;
+  public isPointing: boolean = false;
+
   public consecutiveFistFrames: number = 0;
   public consecutiveFistReleaseFrames: number = 0;
   public consecutivePinchFrames: number = 0;
@@ -51,7 +53,7 @@ class SingleHandProcessor {
     confidence: number,
     now: number
   ): SingleHandData & { clickTriggered: boolean; clickType: "fist" | "pinch" | null } {
-    // Smooth all 21 joints
+    // Smooth all 21 joints using 1-Euro adaptive filters
     const smoothed21: Point3D[] = rawLandmarks.map((pt, i) => {
       const smoothed = this.fingerSmoothers[i].filter(pt.x, pt.y, now);
       return {
@@ -62,42 +64,94 @@ class SingleHandProcessor {
     });
 
     const wrist = smoothed21[0];
+    const thumbCmc = smoothed21[1];
+    const thumbMcp = smoothed21[2];
+    const thumbIp = smoothed21[3];
     const thumbTip = smoothed21[4];
+
     const indexMcp = smoothed21[5];
     const indexPip = smoothed21[6];
+    const indexDip = smoothed21[7];
     const indexTip = smoothed21[8];
+
     const middleMcp = smoothed21[9];
+    const middlePip = smoothed21[10];
+    const middleDip = smoothed21[11];
     const middleTip = smoothed21[12];
+
     const ringMcp = smoothed21[13];
+    const ringPip = smoothed21[14];
+    const ringDip = smoothed21[15];
     const ringTip = smoothed21[16];
+
     const pinkyMcp = smoothed21[17];
+    const pinkyPip = smoothed21[18];
+    const pinkyDip = smoothed21[19];
     const pinkyTip = smoothed21[20];
 
-    // Reference Palm Scale
-    const palmScale = Math.max(0.08, this.dist3D(wrist, middleMcp));
+    // Reference Palm Scale (skeletal distance from wrist to middle finger base)
+    const palmScale = Math.max(0.06, this.dist3D(wrist, middleMcp));
 
-    // Finger Curls
-    const indexDistToWrist = this.dist3D(indexTip, wrist) / palmScale;
-    const middleDistToWrist = this.dist3D(middleTip, wrist) / palmScale;
-    const ringDistToWrist = this.dist3D(ringTip, wrist) / palmScale;
-    const pinkyDistToWrist = this.dist3D(pinkyTip, wrist) / palmScale;
+    // Calculate individual finger extension and curl metrics
+    // For each finger: check tip-to-wrist vs pip-to-wrist AND tip-to-mcp vs pip-to-mcp
+    const isExtended = (tip: Point3D, pip: Point3D, mcp: Point3D): boolean => {
+      const tipToWrist = this.dist3D(tip, wrist);
+      const pipToWrist = this.dist3D(pip, wrist);
+      const tipToMcp = this.dist3D(tip, mcp);
+      const pipToMcp = this.dist3D(pip, mcp);
+      return tipToWrist > pipToWrist * 1.08 && tipToMcp > pipToMcp * 1.1;
+    };
 
-    const curlIndex = Math.max(0, Math.min(1, (1.6 - indexDistToWrist) / 0.85));
-    const curlMiddle = Math.max(0, Math.min(1, (1.7 - middleDistToWrist) / 0.9));
-    const curlRing = Math.max(0, Math.min(1, (1.6 - ringDistToWrist) / 0.85));
-    const curlPinky = Math.max(0, Math.min(1, (1.5 - pinkyDistToWrist) / 0.8));
+    const isCurled = (tip: Point3D, pip: Point3D, mcp: Point3D): boolean => {
+      const tipToWrist = this.dist3D(tip, wrist);
+      const pipToWrist = this.dist3D(pip, wrist);
+      const tipToMcp = this.dist3D(tip, mcp);
+      const pipToMcp = this.dist3D(pip, mcp);
+      return tipToWrist <= pipToWrist * 1.05 || tipToMcp <= pipToMcp * 0.85 || tipToMcp / palmScale < 0.65;
+    };
 
-    const rawFistClosure = curlIndex * 0.35 + curlMiddle * 0.25 + curlRing * 0.2 + curlPinky * 0.2;
+    const indexExtended = isExtended(indexTip, indexPip, indexMcp);
+    const middleExtended = isExtended(middleTip, middlePip, middleMcp);
+    const ringExtended = isExtended(ringTip, ringPip, ringMcp);
+    const pinkyExtended = isExtended(pinkyTip, pinkyPip, pinkyMcp);
+
+    const indexCurled = isCurled(indexTip, indexPip, indexMcp);
+    const middleCurled = isCurled(middleTip, middlePip, middleMcp);
+    const ringCurled = isCurled(ringTip, ringPip, ringMcp);
+    const pinkyCurled = isCurled(pinkyTip, pinkyPip, pinkyMcp);
+
+    // Continuous Curl Ratios (0.0 = fully open, 1.0 = fully curled)
+    const getCurlRatio = (tip: Point3D, mcp: Point3D): number => {
+      const normDist = this.dist3D(tip, mcp) / palmScale;
+      // Normal range: extended ~1.4, folded ~0.4
+      return Math.max(0, Math.min(1, (1.35 - normDist) / 0.85));
+    };
+
+    const curlIndex = getCurlRatio(indexTip, indexMcp);
+    const curlMiddle = getCurlRatio(middleTip, middleMcp);
+    const curlRing = getCurlRatio(ringTip, ringMcp);
+    const curlPinky = getCurlRatio(pinkyTip, pinkyMcp);
+
+    // Weighted hand closure score
+    const rawFistClosure = curlIndex * 0.3 + curlMiddle * 0.3 + curlRing * 0.2 + curlPinky * 0.2;
     const smoothedFistClosure = this.fistSmoother.filter(rawFistClosure, now);
 
-    // Open hand condition: low curl across all fingers
-    this.isOpenHand = smoothedFistClosure <= 0.35 && curlIndex < 0.4 && curlMiddle < 0.4;
+    // Count extended and curled fingers
+    const extendedCount = (indexExtended ? 1 : 0) + (middleExtended ? 1 : 0) + (ringExtended ? 1 : 0) + (pinkyExtended ? 1 : 0);
+    const curledCount = (indexCurled ? 1 : 0) + (middleCurled ? 1 : 0) + (ringCurled ? 1 : 0) + (pinkyCurled ? 1 : 0);
 
-    // Pinch calculation
+    // Open Hand condition: at least 3 fingers fully extended and low overall closure
+    this.isOpenHand = (extendedCount >= 3 && curledCount <= 1) || (smoothedFistClosure <= 0.35 && extendedCount >= 2);
+
+    // Pointing condition: index extended, while middle/ring/pinky are mostly curled
+    this.isPointing = indexExtended && (middleCurled || ringCurled || pinkyCurled);
+
+    // Pinch calculation (Normalized by palm scale for scale-invariant distance)
     const rawPinchDist = this.dist3D(thumbTip, indexTip);
+    const normalizedPinchDist = rawPinchDist / palmScale;
     const smoothedPinchDist = this.distanceSmoother.filter(rawPinchDist, now);
 
-    // Pointer smoothing & stabilization lock
+    // Pointer smoothing & stabilization lock (Locks position during clenching to prevent jitter)
     const rawPointer = this.pointerSmoother.filter(indexTip.x, indexTip.y, now);
     let finalPointer: Point2D;
 
@@ -113,9 +167,9 @@ class SingleHandProcessor {
       finalPointer = rawPointer;
     }
 
-    // Fist State Machine
-    const isFistClosedNow = smoothedFistClosure >= FIST_CLOSE_THRESHOLD;
-    const isFistOpenNow = smoothedFistClosure <= FIST_RELEASE_THRESHOLD;
+    // Fist State Machine (Robust with hysteresis)
+    const isFistClosedNow = smoothedFistClosure >= FIST_CLOSE_THRESHOLD || curledCount >= 3;
+    const isFistOpenNow = smoothedFistClosure <= FIST_RELEASE_THRESHOLD || extendedCount >= 3;
 
     if (isFistClosedNow) {
       this.consecutiveFistFrames++;
@@ -126,8 +180,8 @@ class SingleHandProcessor {
     }
 
     // Pinch State Machine
-    const isPinchCloseNow = smoothedPinchDist < PINCH_START_THRESHOLD;
-    const isPinchFarNow = smoothedPinchDist > PINCH_RELEASE_THRESHOLD;
+    const isPinchCloseNow = normalizedPinchDist < 0.32 || smoothedPinchDist < PINCH_START_THRESHOLD;
+    const isPinchFarNow = normalizedPinchDist > 0.45 && smoothedPinchDist > PINCH_RELEASE_THRESHOLD;
 
     if (isPinchCloseNow) {
       this.consecutivePinchFrames++;
@@ -141,32 +195,32 @@ class SingleHandProcessor {
     let clickType: "fist" | "pinch" | null = null;
 
     if (!this.isClosedFist) {
-      if (this.consecutiveFistFrames >= 2) {
+      if (this.consecutiveFistFrames >= 1) { // 1 frame trigger for instantaneous feedback
         this.isClosedFist = true;
         clickTriggered = true;
         clickType = "fist";
       }
     } else {
-      if (this.consecutiveFistReleaseFrames >= 2) {
+      if (this.consecutiveFistReleaseFrames >= 1) {
         this.isClosedFist = false;
       }
     }
 
     if (!clickTriggered && !this.isClosedFist) {
       if (!this.isPinching) {
-        if (this.consecutivePinchFrames >= 2) {
+        if (this.consecutivePinchFrames >= 1) {
           this.isPinching = true;
           clickTriggered = true;
           clickType = "pinch";
         }
       } else {
-        if (this.consecutivePinchReleaseFrames >= 2) {
+        if (this.consecutivePinchReleaseFrames >= 1) {
           this.isPinching = false;
         }
       }
     }
 
-    // Determine state
+    // Determine Gesture State
     let state = GestureState.TRACKING;
     if (this.isClosedFist) {
       state = GestureState.CLOSED_FIST;
@@ -174,9 +228,9 @@ class SingleHandProcessor {
       state = GestureState.CLOSING_HAND;
     } else if (this.isPinching) {
       state = GestureState.PINCH_HOLD;
-    } else if (smoothedPinchDist < PINCH_START_THRESHOLD * 1.5) {
+    } else if (normalizedPinchDist < 0.42) {
       state = GestureState.READY_TO_PINCH;
-    } else if (curlIndex < 0.35 && curlMiddle > 0.45) {
+    } else if (this.isPointing) {
       state = GestureState.INDEX_POINTING;
     }
 
@@ -197,8 +251,8 @@ class SingleHandProcessor {
       confidence,
       gestureState: state,
       pointer: {
-        x: Math.max(0.02, Math.min(0.98, finalPointer.x)),
-        y: Math.max(0.02, Math.min(0.98, finalPointer.y)),
+        x: Math.max(0.01, Math.min(0.99, finalPointer.x)),
+        y: Math.max(0.01, Math.min(0.99, finalPointer.y)),
       },
       isPinching: this.isPinching,
       isClosedFist: this.isClosedFist,
@@ -216,6 +270,7 @@ class SingleHandProcessor {
     this.isPinching = false;
     this.isClosedFist = false;
     this.isOpenHand = false;
+    this.isPointing = false;
     this.isPointerLocked = false;
     this.lockedPointerPos = null;
     this.consecutiveFistFrames = 0;
@@ -240,7 +295,7 @@ export class HandTrackingEngine {
   private dualHandConsecutiveFrames: number = 0;
 
   private framesSinceLastDetection: number = 0;
-  private maxGraceFrames: number = 10;
+  private maxGraceFrames: number = 8;
   private lastGoodData: HandTrackingData | null = null;
 
   // FPS tracking
@@ -340,14 +395,17 @@ export class HandTrackingEngine {
       const hand0 = processedHands[0];
       const hand1 = processedHands[1];
 
+      // Hand 0 is open AND Hand 1 is fist OR vice versa
       const caseA = hand0.isOpenHand && hand1.isClosedFist;
       const caseB = hand0.isClosedFist && hand1.isOpenHand;
+      const caseC = hand0.fistProgress <= 0.35 && hand1.fistProgress >= 0.55;
+      const caseD = hand0.fistProgress >= 0.55 && hand1.fistProgress <= 0.35;
 
-      if (caseA) {
+      if (caseA || caseC) {
         hasOneOpenOneFist = true;
         openHandSide = hand0.handedness;
         fistHandSide = hand1.handedness;
-      } else if (caseB) {
+      } else if (caseB || caseD) {
         hasOneOpenOneFist = true;
         openHandSide = hand1.handedness;
         fistHandSide = hand0.handedness;
@@ -355,12 +413,12 @@ export class HandTrackingEngine {
 
       if (hasOneOpenOneFist) {
         this.dualHandConsecutiveFrames++;
-        if (this.dualHandConsecutiveFrames >= 2) {
+        if (this.dualHandConsecutiveFrames >= 1) { // Immediate trigger on gesture detection
           const timeSinceLastDual = now - this.lastDualHandTriggerTime;
           if (timeSinceLastDual > DUAL_HAND_NEXT_COOLDOWN_MS) {
             isDualHandNextTriggered = true;
             this.lastDualHandTriggerTime = now;
-            // Suppress single-hand clicks during dual hand gesture
+            // Suppress single-hand clicks during dual hand next gesture
             clickTriggered = false;
           }
         }
@@ -372,10 +430,13 @@ export class HandTrackingEngine {
     }
 
     // 4. Primary Hand Selection for Pointer & Single Interactions
-    // Prefer the pointing hand or right hand or non-fist hand
+    // Prefer the pointing hand or non-fist hand
     let primaryHand = processedHands[0];
     if (processedHands.length > 1) {
-      if (processedHands[1].gestureState === GestureState.INDEX_POINTING || (!processedHands[1].isClosedFist && processedHands[0].isClosedFist)) {
+      if (
+        processedHands[1].gestureState === GestureState.INDEX_POINTING ||
+        (!processedHands[1].isClosedFist && processedHands[0].isClosedFist)
+      ) {
         primaryHand = processedHands[1];
       }
     }
@@ -411,7 +472,6 @@ export class HandTrackingEngine {
     return { trackingData, clickTriggered, isDualHandNextTriggered };
   }
 
-  // Single-hand fallback compatibility method
   public processRawLandmarks(
     rawLandmarks: { x: number; y: number; z?: number }[] | null | undefined,
     handedness: "Left" | "Right" = "Right",

@@ -1,7 +1,8 @@
 import React from "react";
-import { HandTrackingData, GestureState, SingleHandData } from "../types";
+import { HandTrackingData, GestureState } from "../types";
 import { FIST_CLOSE_THRESHOLD } from "../lib/handTracking";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface HandPointerOverlayProps {
   trackingData: HandTrackingData;
@@ -14,37 +15,37 @@ interface HandPointerOverlayProps {
 
 // MediaPipe hand joint connections for skeleton rendering
 const HAND_CONNECTIONS = [
-  // Thumb (Interactive Joint)
+  // Thumb
   { start: 0, end: 1, finger: "thumb" },
   { start: 1, end: 2, finger: "thumb" },
   { start: 2, end: 3, finger: "thumb" },
   { start: 3, end: 4, finger: "thumb" },
 
-  // Index (Interactive Pointer)
+  // Index
   { start: 0, end: 5, finger: "index" },
   { start: 5, end: 6, finger: "index" },
   { start: 6, end: 7, finger: "index" },
   { start: 7, end: 8, finger: "index" },
 
-  // Middle (Structure)
+  // Middle
   { start: 0, end: 9, finger: "middle" },
   { start: 9, end: 10, finger: "middle" },
   { start: 10, end: 11, finger: "middle" },
   { start: 11, end: 12, finger: "middle" },
 
-  // Ring (Structure)
+  // Ring
   { start: 0, end: 13, finger: "ring" },
   { start: 13, end: 14, finger: "ring" },
   { start: 14, end: 15, finger: "ring" },
   { start: 15, end: 16, finger: "ring" },
 
-  // Pinky (Structure)
+  // Pinky
   { start: 0, end: 17, finger: "pinky" },
   { start: 17, end: 18, finger: "pinky" },
   { start: 18, end: 19, finger: "pinky" },
   { start: 19, end: 20, finger: "pinky" },
 
-  // Palm base bridge
+  // Palm base
   { start: 5, end: 9, finger: "palm" },
   { start: 9, end: 13, finger: "palm" },
   { start: 13, end: 17, finger: "palm" },
@@ -74,7 +75,6 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
     dualHandState,
   } = trackingData;
 
-  // Transform coordinates based on isMirrored
   const getRenderX = (normX: number) => {
     const adjustedX = isMirrored ? 1 - normX : normX;
     return adjustedX * containerWidth;
@@ -87,13 +87,12 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
   const pointerPixelX = getRenderX(pointer.x);
   const pointerPixelY = getRenderY(pointer.y);
 
-  // Closure calculation for radial charging gauge (0 to 100%)
+  // Radial charging gauge
   const chargePercent = Math.max(0, Math.min(100, (fistProgress / FIST_CLOSE_THRESHOLD) * 100));
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (chargePercent / 100) * circumference;
 
-  // Hands to render: either array of detected hands or single fallback
   const handsToRender: { landmarks: any; isPrimary: boolean; isFist: boolean; isOpen: boolean; handedness: string }[] =
     allHands.length > 0
       ? allHands.map((h, idx) => ({
@@ -126,7 +125,7 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
 
             return (
               <g key={`hand-group-${hIdx}`}>
-                {/* Bone lines for all 5 fingers */}
+                {/* Bone lines */}
                 {HAND_CONNECTIONS.map((conn, i) => {
                   const startPt = handLandmarks.rawLandmarks[conn.start];
                   const endPt = handLandmarks.rawLandmarks[conn.end];
@@ -138,10 +137,10 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
                   let strokeW = "1.5";
 
                   if (handItem.isFist) {
-                    strokeColor = "rgba(52, 211, 153, 0.85)"; // Emerald for fist
+                    strokeColor = "rgba(52, 211, 153, 0.85)";
                     strokeW = isInteractive ? "3" : "2";
                   } else if (handItem.isOpen) {
-                    strokeColor = "rgba(56, 189, 248, 0.85)"; // Sky blue for open hand
+                    strokeColor = "rgba(56, 189, 248, 0.85)";
                     strokeW = isInteractive ? "3" : "2";
                   } else if (isInteractive) {
                     if (isClicking && handItem.isPrimary) {
@@ -242,26 +241,34 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
         </svg>
       )}
 
-      {/* 2. Dual Hand Next Gesture Indicator Toast */}
-      {(dualHandState?.hasOneOpenOneFist || isDualHandNextTriggered) && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900/90 text-white backdrop-blur-xl border border-emerald-400/80 shadow-[0_0_30px_rgba(52,211,153,0.5)] animate-pulse">
-          <div className="flex items-center gap-1.5 text-lg font-black">
-            <span className="p-1.5 rounded-xl bg-sky-500/30 border border-sky-400/50">🖐️ Buka</span>
-            <span className="text-emerald-400 font-black">+</span>
-            <span className="p-1.5 rounded-xl bg-emerald-500/30 border border-emerald-400/50">✊ Mengepal</span>
-          </div>
-          <div className="border-l border-white/20 pl-3">
-            <div className="flex items-center gap-1.5 text-xs font-black text-emerald-300 uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-              <span>Gestur Next Soal Terdeteksi!</span>
+      {/* 2. Dual Hand Next Gesture Animated Indicator Toast */}
+      <AnimatePresence>
+        {(dualHandState?.hasOneOpenOneFist || isDualHandNextTriggered) && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-slate-900/95 text-white backdrop-blur-xl border border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.6)]"
+          >
+            <div className="flex items-center gap-1.5 text-lg font-black">
+              <span className="p-1.5 rounded-xl bg-sky-500/30 border border-sky-400/50">🖐️ Buka</span>
+              <span className="text-emerald-400 font-black">+</span>
+              <span className="p-1.5 rounded-xl bg-emerald-500/30 border border-emerald-400/50">✊ Mengepal</span>
             </div>
-            <p className="text-[11px] text-slate-300">
-              {isDualHandNextTriggered ? "Maju ke pertanyaan berikutnya..." : "Tahan sejenak untuk berpindah soal"}
-            </p>
-          </div>
-          <ArrowRight className="w-5 h-5 text-emerald-400 animate-bounce" />
-        </div>
-      )}
+            <div className="border-l border-white/20 pl-3">
+              <div className="flex items-center gap-1.5 text-xs font-black text-emerald-300 uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                <span>Gestur Next Soal Terdeteksi!</span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                {isDualHandNextTriggered ? "Maju ke pertanyaan berikutnya..." : "Tahan sejenak untuk berpindah soal"}
+              </p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-emerald-400 animate-bounce" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. Debug HUD Metrics Panel (Top-Right) */}
       {showDebugSkeleton && (
@@ -308,7 +315,7 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
           <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
             <div
               className={`h-full transition-all duration-75 ${
-                isClosedFist ? "bg-emerald-500" : fistProgress > 0.5 ? "bg-amber-500" : "bg-sky-500"
+                isClosedFist ? "bg-emerald-500" : fistProgress > 0.4 ? "bg-amber-500" : "bg-sky-500"
               }`}
               style={{ width: `${Math.min(100, (fistProgress / FIST_CLOSE_THRESHOLD) * 100)}%` }}
             />
@@ -330,11 +337,11 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
             left: `${pointerPixelX}px`,
             top: `${pointerPixelY}px`,
             transform: "translate(-50%, -50%)",
-            transition: "transform 0.05s ease-out",
+            transition: "transform 0.04s ease-out",
           }}
         >
           <div className="relative flex items-center justify-center">
-            {/* SVG Radial Gauge for Closing Hand ("Tutup Tangan") */}
+            {/* Radial Gauge for Closing Hand ("Tutup Tangan") */}
             <svg
               className={`w-14 h-14 -rotate-90 transition-transform duration-100 ${
                 isClicking ? "scale-110" : hoveredElementId ? "scale-105" : "scale-100"
@@ -356,7 +363,7 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
                 className={`transition-all duration-75 ${
                   isClicking
                     ? "stroke-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-                    : fistProgress > 0.4
+                    : fistProgress > 0.35
                     ? "stroke-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]"
                     : hoveredElementId
                     ? "stroke-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]"
@@ -398,7 +405,7 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
               }`}
             />
 
-            {/* Inner Center Precision Core Dot */}
+            {/* Center Precision Core Dot */}
             <div
               className={`absolute w-3.5 h-3.5 rounded-full transition-all duration-100 ${
                 isClicking
@@ -409,7 +416,7 @@ export const HandPointerOverlay: React.FC<HandPointerOverlayProps> = ({
               }`}
             />
 
-            {/* Dynamic Click / Hover Badge Tooltip */}
+            {/* Click / Hover Badge Tooltip */}
             <div
               className={`absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight shadow-lg backdrop-blur-md transition-all duration-150 border ${
                 isClicking

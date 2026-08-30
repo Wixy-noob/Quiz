@@ -1,6 +1,6 @@
 /**
  * Camera Stream and MediaPipe Hands Pipeline
- * Guarantees NON-MIRROR preview for both Front and Back cameras.
+ * High-precision multi-hand tracking with smooth non-blocking frame pipeline.
  */
 
 export type CameraFacing = "user" | "environment";
@@ -27,7 +27,7 @@ export class CameraPipelineManager {
         const mpHands = await import("@mediapipe/hands");
         HandsConstructor = (mpHands as any).Hands || (window as any).Hands;
       } catch (err) {
-        console.warn("NPM import failed, checking window.Hands or loading CDN script...", err);
+        console.warn("NPM import failed, falling back to CDN script...", err);
       }
 
       if (!HandsConstructor && typeof window !== "undefined") {
@@ -50,8 +50,8 @@ export class CameraPipelineManager {
       this.handsInstance.setOptions({
         maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.55,
-        minTrackingConfidence: 0.55,
+        minDetectionConfidence: 0.45,
+        minTrackingConfidence: 0.45,
       });
 
       this.handsInstance.onResults((results: any) => {
@@ -93,10 +93,10 @@ export class CameraPipelineManager {
     this.facingMode = facing;
     this.onResultsCallback = onResults;
 
-    // 1. Pause previous frame loop & release old stream
+    // 1. Stop old streams
     this.stopCameraStream();
 
-    // 2. Load hands model if not yet loaded
+    // 2. Load hands model
     const handsReady = await this.loadMediaPipeHands();
     if (!handsReady) {
       console.warn("Hand tracking model could not be initialized. Camera will still display.");
@@ -116,10 +116,6 @@ export class CameraPipelineManager {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       this.currentStream = stream;
       videoEl.srcObject = stream;
-
-      // Ensure NON-MIRROR styles
-      videoEl.style.transform = "none";
-      videoEl.style.webkitTransform = "none";
 
       await new Promise<void>((resolve) => {
         videoEl.onloadedmetadata = () => {
@@ -174,7 +170,7 @@ export class CameraPipelineManager {
         try {
           await this.handsInstance.send({ image: this.videoElement });
         } catch (e) {
-          // Ignored per-frame error
+          // Frame error ignored
         } finally {
           isBusy = false;
         }

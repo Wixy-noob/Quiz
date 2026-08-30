@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { PanelTransform } from "../types";
-import { Move, Lock, Unlock, RotateCw, Maximize2 } from "lucide-react";
+import { Move, Lock, Unlock, RotateCw } from "lucide-react";
+import { motion } from "motion/react";
 
 interface FloatingARPanelProps {
   panelTransform: PanelTransform;
@@ -99,17 +100,20 @@ export const FloatingARPanel: React.FC<FloatingARPanelProps> = ({
   const isDragHovered = hoveredElementId === "panel-drag-handle";
 
   return (
-    <div
+    <motion.div
       ref={panelRef}
       id="floating-ar-card-container"
-      className="pointer-events-auto transition-all duration-100 ease-out select-none will-change-transform"
+      initial={{ opacity: 0, scale: 0.9, y: 30 }}
+      animate={{ opacity: 1, scale: panelTransform.scale, y: panelTransform.y, x: panelTransform.x }}
+      transition={{ type: "spring", stiffness: 350, damping: 28 }}
+      className="pointer-events-auto select-none will-change-transform"
       style={{
         transform: `translate(${panelTransform.x}px, ${panelTransform.y}px) scale(${panelTransform.scale}) rotate(${panelTransform.rotation}deg)`,
       }}
     >
       {/* Glassmorphic AR Card Container */}
       <div
-        className={`relative w-full max-w-xl bg-slate-900/50 text-slate-100 backdrop-blur-xl border rounded-3xl shadow-2xl overflow-hidden transition-all ${
+        className={`relative w-full max-w-xl bg-slate-900/60 text-slate-100 backdrop-blur-xl border rounded-3xl shadow-2xl overflow-hidden transition-all ${
           panelTransform.isDragging
             ? "border-emerald-400/80 shadow-[0_0_40px_rgba(16,185,129,0.3)] ring-2 ring-emerald-400/50"
             : isDragHovered
@@ -129,7 +133,7 @@ export const FloatingARPanel: React.FC<FloatingARPanelProps> = ({
               ? "bg-emerald-600/35 text-emerald-200"
               : "bg-slate-950/40 hover:bg-slate-900/60"
           }`}
-          title="Drag or pinch to move AR panel"
+          title="Drag atau geser panel AR"
         >
           <div className="flex items-center gap-2.5">
             <div className="p-1 rounded-md bg-sky-500/25 text-sky-300 border border-sky-400/30">
@@ -175,6 +179,6 @@ export const FloatingARPanel: React.FC<FloatingARPanelProps> = ({
         {/* Panel Main Content Area */}
         <div className="p-4 sm:p-5">{children}</div>
       </div>
-    </div>
+    </motion.div>
   );
 };
