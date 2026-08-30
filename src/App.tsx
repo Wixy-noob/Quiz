@@ -3,19 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { ActiveAppMode, StudentProfile } from "./types";
 import { HeaderNav } from "./components/HeaderNav";
 import { DashboardMateri } from "./components/DashboardMateri";
 import { StandardQuiz } from "./components/StandardQuiz";
 import { PhotoTourism } from "./components/PhotoTourism";
 import { ARHandTrackingSection } from "./components/ARHandTrackingSection";
-import { ApkInstallModal } from "./components/ApkInstallModal";
 import { StudentProfileModal } from "./components/StudentProfileModal";
 
 export default function App() {
   const [activeMode, setActiveMode] = useState<ActiveAppMode>("dashboard");
-  const [isApkModalOpen, setIsApkModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<ActiveAppMode | null>(null);
 
@@ -59,11 +57,10 @@ export default function App() {
       <HeaderNav
         activeMode={activeMode}
         onSelectMode={handleNavigateWithProfileCheck}
-        onOpenApkModal={() => setIsApkModalOpen(true)}
       />
 
-      {/* Main Content Viewport with Full Scroll Support */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-20">
+      {/* Main Content Viewport */}
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-5 pb-20">
         {/* 1. Dashboard & Pusat Materi (Default Landing View) */}
         {activeMode === "dashboard" && (
           <DashboardMateri
@@ -89,7 +86,7 @@ export default function App() {
           </div>
         )}
 
-        {/* 4. AR Hand-Tracking Quiz (Non-Mirror Camera + 5 Fingers) */}
+        {/* 4. AR Hand-Tracking Quiz */}
         {activeMode === "ar_quiz" && (
           <div className="py-2">
             <ARHandTrackingSection
@@ -101,7 +98,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Student Profile Registration Modal (Required before quizzes) */}
+      {/* Student Profile Registration Modal */}
       <StudentProfileModal
         isOpen={isProfileModalOpen}
         currentProfile={studentProfile}
@@ -111,15 +108,9 @@ export default function App() {
           pendingMode === "ar_quiz"
             ? "Quiz AR Hand-Tracking"
             : pendingMode === "quiz_biasa"
-            ? "Quiz Biasa Standar"
+            ? "Quiz Standar"
             : "Latihan Madjuka Tensis"
         }
-      />
-
-      {/* APK / PWA Mobile Installer Modal */}
-      <ApkInstallModal
-        isOpen={isApkModalOpen}
-        onClose={() => setIsApkModalOpen(false)}
       />
     </div>
   );
